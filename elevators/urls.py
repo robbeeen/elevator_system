@@ -7,5 +7,6 @@ from . import views
 urlpatterns = [
     path('create/', views.CreateElevators.as_view(), name="CreateElevators"),
 ]
-# route = DefaultRouter()
-
+routes = DefaultRouter()
+routes.register('data', views.ElevatorsController, basename="data")
+urlpatterns = routes.urls + urlpatterns

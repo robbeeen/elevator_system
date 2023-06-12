@@ -19,6 +19,12 @@ class Elevator(models.Model):
         ("stop", "STOP")
     )
 
+    WORKING_STATUS = (
+        ("working", "WORKING"),
+        ("not_working", "NOT WORKING"),
+        ("in_maintenance", "IN_MAINTENANCE")
+    )
+
     DOOR_STATUS = (
         ("open", "OPEN"),
         ("close", "CLOSE")
@@ -27,7 +33,7 @@ class Elevator(models.Model):
     elevator_name = models.CharField(max_length=100, blank=False)
     current_floor = models.IntegerField(default=0, blank=False)
     destination_floor = models.IntegerField(default=0, blank=False)
-    is_operational = models.BooleanField(default=True)
+    working_status = models.CharField(max_length=50, choices=WORKING_STATUS, default="working")
     running_status = models.CharField(max_length=50, choices=RUNNING_STATUS, default="start")
     door_status = models.CharField(max_length=50, choices=DOOR_STATUS, default="open")
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="available")
