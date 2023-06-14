@@ -32,7 +32,7 @@ class Elevator(models.Model):
 
     elevator_name = models.CharField(max_length=100, blank=False)
     current_floor = models.IntegerField(default=0, blank=False)
-    destination_floor = models.IntegerField(default=0, blank=False)
+    destination_floor = models.CharField(max_length=50, default="", blank=False)
     working_status = models.CharField(max_length=50, choices=WORKING_STATUS, default="working")
     running_status = models.CharField(max_length=50, choices=RUNNING_STATUS, default="start")
     door_status = models.CharField(max_length=50, choices=DOOR_STATUS, default="open")
@@ -58,8 +58,14 @@ class ElevatorRequest(models.Model):
 
     REQUEST_TYPE = (
         ("door", "DOOR"),
-        ("elevator", "ELEVATOR"),
+        ("elevator_working_status", "ELEVATOR WORKING STATUS"),
         ("floor", "FLOOR")
+    )
+
+    WORKING_STATUS = (
+        ("working", "WORKING"),
+        ("not_working", "NOT WORKING"),
+        ("in_maintenance", "IN_MAINTENANCE")
     )
 
     elevator = models.ForeignKey(Elevator, on_delete=models.CASCADE)
@@ -67,6 +73,7 @@ class ElevatorRequest(models.Model):
     destination_floor = models.IntegerField(blank=True, null=True)
     door_status = models.CharField(max_length=50, choices=DOOR_STATUS)
     request_type = models.CharField(max_length=50, choices=REQUEST_TYPE)
+    working_status = models.CharField(max_length=50, choices=WORKING_STATUS)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
