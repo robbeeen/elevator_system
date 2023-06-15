@@ -92,6 +92,9 @@ class ElevatorsController(viewsets.ModelViewSet):
         serializer = ElevatorRequestSerializer(elevator_requests, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    """
+    Some additional api for covering the edge cases
+    """
     @action(detail=True, methods=['POST'])
     def change_floor(self, request, *args, **kwargs):
         try:
@@ -162,15 +165,17 @@ class ElevatorsController(viewsets.ModelViewSet):
                         return Response({"message": "Floor is same as current floor"},
                                         status=status.HTTP_400_BAD_REQUEST)
                     else:
-                        elevator.running_status = "running"
-                        if elevator.current_floor < requested_floor:
-                            self.update_elevator(
-                                direction="UP", destination_floor=requested_floor,
+                        elevator.running_status = "start"
+                        if elevator.door_status == "close":
+                            self.decide_direction(
+                                requested_floor=requested_floor,
                                 elevator=elevator)
                         else:
-                            self.update_elevator(
-                                direction="DOWN", destination_floor=requested_floor,
+                            elevator.door_status = "open"
+                            self.decide_direction(
+                                requested_floor=requested_floor,
                                 elevator=elevator)
+
                 else:
                     self.update_elevator(direction=elevator.direction, destination_floor=requested_floor,
                                          elevator=elevator)
@@ -190,3 +195,13 @@ class ElevatorsController(viewsets.ModelViewSet):
         elevator_destination = list(set(elevator_destination))
         elevator.destination_floor = json.dumps(elevator_destination)
         elevator.save()
+
+    def decide_direction(self, requested_floor: int, elevator: Elevator):
+        if elevator.current_floor < requested_floor:
+            self.update_elevator(
+                direction="UP", destination_floor=requested_floor,
+                elevator=elevator)
+        else:
+            self.update_elevator(
+                direction="DOWN", destination_floor=requested_floor,
+                elevator=elevator)
