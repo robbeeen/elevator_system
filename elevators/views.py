@@ -1,15 +1,19 @@
-from django.shortcuts import render
-from rest_framework import status, viewsets
 import json
+
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+import requests
 from elevators.models import Elevator, ElevatorRequest
 from elevators.serializers import ElevatorSerializer, ElevatorRequestSerializer
 
 
 class CreateElevators(APIView):
+    """
+    API for creating N elevators objects
+    """
+
     def post(self, request, *args, **kwargs):
         no_of_elevators = request.data.get('no_of_elevators')
         if no_of_elevators and no_of_elevators != 0 and no_of_elevators is not None:
@@ -26,6 +30,9 @@ class CreateElevators(APIView):
 
 
 class ElevatorsController(viewsets.ModelViewSet):
+    """
+    for managing elevators objects
+    """
     queryset = Elevator.objects.all()
     serializer_class = ElevatorSerializer
 
@@ -87,28 +94,50 @@ class ElevatorsController(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['POST'])
     def change_floor(self, request, *args, **kwargs):
-        import pdb; pdb.set_trace()
         try:
             destination_floor = int(request.POST.get('destination_floor'))
             if destination_floor:
                 elevator = Elevator.objects.get(id=kwargs.get('pk'))
                 if destination_floor == elevator.current_floor:
-                    print("do nothing")
                     return Response({"message": "destination floor is same as current floor"},
                                     status=status.HTTP_400_BAD_REQUEST)
                 else:
                     if destination_floor > elevator.current_floor:
-                        if elevator.door_status == 'OPEN':
-                            print("close the door")
+                        if elevator.door_status == 'open':
+                            r = requests.patch(
+                                "http://127.0.0.1:8000/elevator/data/{}/update_elevator_data/".format(elevator.id),
+                                data={"door_status": "close",
+                                      "request_type": "door_status"})
+
+                            if r.status_code == 200:
+                                self.update_elevator(
+                                    direction="UP", destination_floor=destination_floor,
+                                    elevator=elevator)
+                            else:
+                                return Response({
+                                    'message': "Invalid Request Door is not closed"},
+                                    status=status.HTTP_400_BAD_REQUEST)
                         else:
-                            self.update_elevator_object(
+                            self.update_elevator(
                                 direction="UP", destination_floor=destination_floor,
                                 elevator=elevator)
                     else:
-                        if elevator.door_status == 'OPEN':
-                            print("close the door")
+                        if elevator.door_status == 'open':
+                            r = requests.patch(
+                                "http://127.0.0.1:8000/elevator/data/{}/update_elevator_data/".format(elevator.id),
+                                data={"door_status": "close",
+                                      "request_type": "door_status"})
+
+                            if r.status_code == 200:
+                                self.update_elevator(
+                                    direction="UP", destination_floor=destination_floor,
+                                    elevator=elevator)
+                            else:
+                                return Response({
+                                    'message': "Invalid Request Door is not closed"},
+                                    status=status.HTTP_400_BAD_REQUEST)
                         else:
-                            self.update_elevator_object(
+                            self.update_elevator(
                                 direction="DOWN", destination_floor=destination_floor,
                                 elevator=elevator)
                 ElevatorRequest.objects.create(
@@ -117,19 +146,47 @@ class ElevatorsController(viewsets.ModelViewSet):
 
         except Elevator.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        elevator.destination_floor = request.data.get('destination_floor')
-        elevator.save()
+        return Response(status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['POST'])
+    def call_elevator(self, request, *args, **kwargs):
+        try:
+            requested_floor = int(request.POST.get('requested_floor'))
+            if requested_floor:
+                elevator = Elevator.objects.get(id=kwargs.get('pk'))
+                ElevatorRequest.objects.create(
+                    elevator=elevator, request_type="elevator")
+                if elevator.running_status == "stop":
+                    if elevator.current_floor == requested_floor:
+                        elevator.door_status = "open"
+                        return Response({"message": "Floor is same as current floor"},
+                                        status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        elevator.running_status = "running"
+                        if elevator.current_floor < requested_floor:
+                            self.update_elevator(
+                                direction="UP", destination_floor=requested_floor,
+                                elevator=elevator)
+                        else:
+                            self.update_elevator(
+                                direction="DOWN", destination_floor=requested_floor,
+                                elevator=elevator)
+                else:
+                    self.update_elevator(direction=elevator.direction, destination_floor=requested_floor,
+                                         elevator=elevator)
+        except Elevator.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_200_OK)
 
     @staticmethod
-    def update_elevator_object(direction: str, destination_floor: int, elevator: Elevator):
+    def update_elevator(direction: str, destination_floor: int, elevator: Elevator):
         elevator.direction = direction
+        elevator_destination = []
         elevator_destination = json.loads(elevator.destination_floor)
         if isinstance(elevator_destination, list):
             elevator_destination.append(destination_floor)
         else:
-            elevator_destination = [destination_floor]
+            elevator_destination = [destination_floor, ]
+        elevator_destination = list(set(elevator_destination))
         elevator.destination_floor = json.dumps(elevator_destination)
         elevator.save()
-        return Response(status=status.HTTP_200_OK)
-
