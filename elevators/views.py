@@ -157,8 +157,6 @@ class ElevatorsController(viewsets.ModelViewSet):
             requested_floor = int(request.POST.get('requested_floor'))
             if requested_floor:
                 elevator = Elevator.objects.get(id=kwargs.get('pk'))
-                ElevatorRequest.objects.create(
-                    elevator=elevator, request_type="elevator")
                 if elevator.running_status == "stop":
                     if elevator.current_floor == requested_floor:
                         elevator.door_status = "open"
@@ -171,16 +169,18 @@ class ElevatorsController(viewsets.ModelViewSet):
                                 requested_floor=requested_floor,
                                 elevator=elevator)
                         else:
-                            elevator.door_status = "open"
+                            elevator.door_status = "close"
                             self.decide_direction(
                                 requested_floor=requested_floor,
                                 elevator=elevator)
-
                 else:
                     self.update_elevator(direction=elevator.direction, destination_floor=requested_floor,
                                          elevator=elevator)
         except Elevator.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
+        ElevatorRequest.objects.create(
+            elevator=elevator, destination_floor=requested_floor,
+            request_type="floor")
         return Response(status=status.HTTP_200_OK)
 
     @staticmethod
@@ -192,7 +192,12 @@ class ElevatorsController(viewsets.ModelViewSet):
             elevator_destination.append(destination_floor)
         else:
             elevator_destination = [destination_floor, ]
-        elevator_destination = list(set(elevator_destination))
+        new_list = []
+        for item in elevator_destination:
+            if item not in new_list:
+                new_list.append(item)
+
+        elevator_destination = new_list
         elevator.destination_floor = json.dumps(elevator_destination)
         elevator.save()
 
@@ -203,5 +208,5 @@ class ElevatorsController(viewsets.ModelViewSet):
                 elevator=elevator)
         else:
             self.update_elevator(
-                direction="DOWN", destination_floor=requested_floor,
+                direction="down", destination_floor=requested_floor,
                 elevator=elevator)
